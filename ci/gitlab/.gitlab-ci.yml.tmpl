@@ -1,0 +1,11 @@
+image: golang:1.21
+
+stages:
+  - test
+
+test:
+  stage: test
+  script:
+    - go mod tidy
+    - go build ./...
+    - go test ./...

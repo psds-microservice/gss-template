@@ -1,0 +1,41 @@
+{
+  "command": {
+    "git": [["init"]],
+    "go": [
+      ["mod", "tidy"],
+      ["get", "gorm.io/gorm", "gorm.io/driver/postgres"]
+    ]
+  },
+  "copy": {},
+  "gitkeep": [
+    "/database/migrations",
+    "/database/seeds",
+    "/internal/dto"
+  ],
+  "mkdir": [
+    "/cmd/{{.Project.K}}",
+    "/internal/config",
+    "/internal/handler",
+    "/internal/model",
+    "/internal/database",
+    "/internal/service",
+    "/pkg/{{.Project.S}}",
+    "/database/migrations",
+    "/database/seeds"
+  ],
+  "render": [
+    { "from": "/go.mod.tmpl", "to": "/go.mod" },
+    { "from": "/README.md.tmpl", "to": "/README.md" },
+    { "from": "/.env.example.tmpl", "to": "/.env.example" },
+    { "from": "/.gitignore.tmpl", "to": "/.gitignore" },
+    { "from": "/Makefile.tmpl", "to": "/Makefile" },
+    { "from": "/cmd/main.go.tmpl", "to": "/cmd/{{.Project.K}}/main.go" },
+    { "from": "/internal/config/config.go.tmpl", "to": "/internal/config/config.go" },
+    { "from": "/internal/model/entity.go.tmpl", "to": "/internal/model/entity.go" },
+    { "from": "/internal/database/database.go.tmpl", "to": "/internal/database/database.go" },
+    { "from": "/internal/handler/healthcheck.go.tmpl", "to": "/internal/handler/healthcheck.go" },
+    { "from": "/internal/service/service.go.tmpl", "to": "/internal/service/service.go" },
+    { "from": "/ci/github/workflows.yml.tmpl", "to": "/.github/workflows/ci.yml", "ci": "github" },
+    { "from": "/ci/gitlab/.gitlab-ci.yml.tmpl", "to": "/.gitlab-ci.yml", "ci": "gitlab" }
+  ]
+}

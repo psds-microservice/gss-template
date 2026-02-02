@@ -1,0 +1,13 @@
+.PHONY: run build tidy test
+
+run:
+	go run ./cmd/{{.Project.K}}
+
+build:
+	go build -o bin/{{.Project.K}} ./cmd/{{.Project.K}}
+
+tidy:
+	go mod tidy
+
+test:
+	go test ./...

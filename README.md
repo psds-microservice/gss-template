@@ -1,58 +1,17 @@
-# gss — Go Service Scaffold
+# gss-template
 
-Генератор базовой структуры Go-проекта из шаблона. Поддерживает выбор CI/CD: **GitHub Actions** или **GitLab CI**.
+Шаблон для [gss](https://github.com/psds-microservice/gss). Не используется напрямую — клонируется через `gss install`, затем `gss init` генерирует из него новый Go-проект.
 
-## Установка
+## Содержимое
 
-```bash
-go build -o gss .
-# или
-go install
-```
+- **GORM** + PostgreSQL: config, model, repository, AutoMigrate.
+- **HTTP**: health/ready, `cmd/<project>/main.go`.
+- **CI**: при `gss init` можно выбрать GitHub Actions или GitLab CI — рендерятся соответствующие файлы.
 
-## Конфигурация
+## Как использовать
 
-При первом запуске создаётся `~/.config/gss/config.yaml`. В нём задаются:
+1. Установить gss и настроить `template_repository_url` на этот репозиторий.
+2. Выполнить `gss install` (один раз).
+3. В каталоге будущего проекта: `gss init` (указать group, project, kuber, ci).
 
-- `template_repository_url` — URL репозитория с шаблоном (или переменная окружения `GSS_TEMPLATE_REPO`)
-- `template_repository_path` — каталог, куда клонируется шаблон (по умолчанию `~/.config/gss/tpl`)
-- `template_path` — каталог используемого шаблона (при вызове с аргументом `v2` — `tpl/v2`)
-
-## Команды
-
-| Команда | Описание |
-|--------|----------|
-| `gss install` | Клонирует репозиторий шаблона в `~/.config/gss/tpl` |
-| `gss update` | Обновляет шаблон (`git pull`) |
-| `gss init` | Создаёт новый проект в текущей директории по шаблону |
-
-### init
-
-Интерактивно (или через флаги) запрашивает:
-
-- **group** — Git group/org (например, `myorg`)
-- **project** — имя проекта (например, `my-service`)
-- **kuber** — namespace в Kubernetes
-- **ci** — `github` или `gitlab` (какой CI/CD генерировать)
-
-Флаги: `-g`, `-p`, `-k`, `--ci`.
-
-## Шаблон
-
-Шаблон — репозиторий с файлами `.tmpl` и конфигом **scaffold.json** в корне (или в `v2/`).
-
-Формат **scaffold.json**:
-
-- **mkdir** — список каталогов (пути могут содержать `{{.Project.K}}`, `{{.Project.S}}`, `{{.Group}}`, `{{.CI}}` и т.д.)
-- **gitkeep** — каталоги, в которые положить `.gitkeep`
-- **copy** — пары "источник → назначение" (копирование как есть)
-- **render** — пары `from` (шаблон) → `to` (файл). Опционально поле **ci**: `"github"` или `"gitlab"` — правило применяется только при выбранном CI
-- **command** — команды, выполняемые в корне нового проекта (например, `git init`, `go mod tidy`)
-
-Данные для шаблонов: `Group`, `Project.C` / `Project.K` / `Project.S`, `Kuber`, `CI`.
-
-Пример конфига и структуры шаблона — в `templates/scaffold.json.example`.
-
-## Разработка
-
-См. [hero-rewrite-guide.md](hero-rewrite-guide.md) — как устроен перенос логики и выбор GitHub/GitLab для CI/CD.
+После генерации: скопировать `.env.example` в `.env`, выполнить `go mod tidy` (или `make tidy`), при необходимости `go get gorm.io/gorm gorm.io/driver/postgres`.
