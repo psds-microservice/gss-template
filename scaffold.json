@@ -42,6 +42,12 @@
     { "from": "/internal/handler/healthcheck.go.tmpl", "to": "/internal/handler/healthcheck.go" },
     { "from": "/internal/service/service.go.tmpl", "to": "/internal/service/service.go" },
     { "from": "/ci/github/workflows.yml.tmpl", "to": "/.github/workflows/ci.yml", "ci": "github" },
-    { "from": "/ci/gitlab/.gitlab-ci.yml.tmpl", "to": "/.gitlab-ci.yml", "ci": "gitlab" }
+    { "from": "/ci/gitlab/.gitlab-ci.yml.tmpl", "to": "/.gitlab-ci.yml", "ci": "gitlab" },
+    { "from": "/deployments/docker-compose.yml.tmpl", "to": "/deployments/docker-compose.yml" },
+    { "from": "/deployments/Dockerfile.tmpl", "to": "/deployments/Dockerfile" },
+    { "from": "/build/k8s/Dockerfile.tmpl", "to": "/build/k8s/Dockerfile" },
+    { "from": "/build/local/Dockerfile.tmpl", "to": "/build/local/Dockerfile" },
+    { "from": "/build/local/.air.toml.tmpl", "to": "/build/local/.air.toml" },
+    { "from": "/build/README.md.tmpl", "to": "/build/README.md" }
   ]
 }
