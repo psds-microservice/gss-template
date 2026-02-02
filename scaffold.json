@@ -10,7 +10,8 @@
   "gitkeep": [
     "/database/migrations",
     "/database/seeds",
-    "/internal/dto"
+    "/internal/dto",
+    "/deployments/data"
   ],
   "mkdir": [
     "/cmd/{{.Project.K}}",
@@ -21,7 +22,12 @@
     "/internal/service",
     "/pkg/{{.Project.S}}",
     "/database/migrations",
-    "/database/seeds"
+    "/database/seeds",
+    "/build",
+    "/build/k8s",
+    "/build/local",
+    "/deployments",
+    "/deployments/data"
   ],
   "render": [
     { "from": "/go.mod.tmpl", "to": "/go.mod" },
