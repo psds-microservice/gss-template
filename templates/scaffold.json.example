@@ -1,0 +1,45 @@
+{
+  "command": {
+    "git": [["init"]],
+    "go": [["mod", "tidy"]]
+  },
+  "copy": {
+    "/third_party": "/third_party"
+  },
+  "gitkeep": [
+    "/database/migrations",
+    "/database/seeds",
+    "/internal/dto"
+  ],
+  "mkdir": [
+    "/cmd/{{.Project.K}}",
+    "/internal/api",
+    "/internal/config",
+    "/internal/handler",
+    "/internal/repository",
+    "/internal/service",
+    "/pkg/{{.Project.S}}",
+    "/database/migrations",
+    "/database/seeds"
+  ],
+  "render": [
+    {
+      "from": "/go.mod.tmpl",
+      "to": "/go.mod"
+    },
+    {
+      "from": "/README.md.tmpl",
+      "to": "/README.md"
+    },
+    {
+      "from": "/ci/github/workflows.yml.tmpl",
+      "to": "/.github/workflows/ci.yml",
+      "ci": "github"
+    },
+    {
+      "from": "/ci/gitlab/.gitlab-ci.yml.tmpl",
+      "to": "/.gitlab-ci.yml",
+      "ci": "gitlab"
+    }
+  ]
+}

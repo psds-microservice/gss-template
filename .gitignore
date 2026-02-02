@@ -1,0 +1,14 @@
+# Binaries
+gss
+gss.exe
+*.exe
+
+# Config (local)
+config.yaml
+
+# IDE
+.idea/
+*.iml
+
+# Go
+/vendor/
