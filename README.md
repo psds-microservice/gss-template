@@ -4,7 +4,7 @@
 
 ## Содержимое
 
-- **GORM** + PostgreSQL: config, model, repository, AutoMigrate.
+- **GORM** + PostgreSQL: config, model, database (миграции, сиды), service. Отдельный слой repository не используется — сервис работает с GORM напрямую; при необходимости его можно добавить позже.
 - **HTTP**: health/ready, `cmd/<project>/main.go`.
 - **CI**: при `gss init` можно выбрать GitHub Actions или GitLab CI — рендерятся соответствующие файлы.
 
