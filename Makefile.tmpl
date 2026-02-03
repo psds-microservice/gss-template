@@ -250,6 +250,8 @@ update:
 	@echo "🔄 Updating dependencies..."
 	go get -u ./...
 	go mod tidy
+    go mod vendor
+    make proto
 	@echo "✅ Dependencies updated"
 
 init: install-deps proto
