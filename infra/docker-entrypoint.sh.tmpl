@@ -1,0 +1,47 @@
+#!/bin/sh
+set -e
+
+echo "🔧 Protoc Go Builder for Shared Library"
+echo "==========================================="
+
+PROTO_ROOT="pkg/proto"
+OUTPUT_DIR="pkg/gen"
+INCLUDE_DIRS="-I ${PROTO_ROOT} -I /include"
+
+if [ $# -gt 0 ]; then
+  echo "Custom command: $@"
+  exec "$@"
+else
+  echo "Proto root: ${PROTO_ROOT}"
+  echo "Output dir: ${OUTPUT_DIR}"
+  echo ""
+
+  mkdir -p ${OUTPUT_DIR}
+
+  find ${PROTO_ROOT} -name "*.proto" 2>/dev/null | while read proto_file; do
+    rel_path="${proto_file#${PROTO_ROOT}/}"
+    dir_path="$(dirname ${rel_path})"
+
+    echo "📁 Processing: ${rel_path}"
+
+    mkdir -p ${OUTPUT_DIR}/${dir_path}
+
+    protoc ${INCLUDE_DIRS} \
+      --go_out=${OUTPUT_DIR} \
+      --go_opt=paths=source_relative \
+      --go-grpc_out=${OUTPUT_DIR} \
+      --go-grpc_opt=paths=source_relative \
+      "${proto_file}"
+
+    if [ $? -eq 0 ]; then
+      echo " ✅ Generated: ${dir_path}/"
+    else
+      echo " ❌ Failed: ${rel_path}"
+      exit 1
+    fi
+  done
+
+  echo ""
+  echo "✅ All proto files generated!"
+  echo "📁 Output: ${OUTPUT_DIR}/"
+fi

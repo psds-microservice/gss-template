@@ -21,13 +21,16 @@
     "/internal/database",
     "/internal/service",
     "/pkg/{{.Project.S}}",
+    "/pkg/proto",
+    "/pkg/gen",
     "/database/migrations",
     "/database/seeds",
     "/build",
     "/build/k8s",
     "/build/local",
     "/deployments",
-    "/deployments/data"
+    "/deployments/data",
+    "/infra"
   ],
   "render": [
     { "from": "/go.mod.tmpl", "to": "/go.mod" },
@@ -48,6 +51,8 @@
     { "from": "/build/k8s/Dockerfile.tmpl", "to": "/build/k8s/Dockerfile" },
     { "from": "/build/local/Dockerfile.tmpl", "to": "/build/local/Dockerfile" },
     { "from": "/build/local/.air.toml.tmpl", "to": "/build/local/.air.toml" },
-    { "from": "/build/README.md.tmpl", "to": "/build/README.md" }
+    { "from": "/build/README.md.tmpl", "to": "/build/README.md" },
+    { "from": "/infra/protoc-go.Dockerfile.tmpl", "to": "/infra/protoc-go.Dockerfile" },
+    { "from": "/infra/docker-entrypoint.sh.tmpl", "to": "/infra/docker-entrypoint.sh" }
   ]
 }
