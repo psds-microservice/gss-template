@@ -1,0 +1,15 @@
+package consumer
+
+// Consumer — обработчики очередей (RabbitMQ и т.д.).
+// Регистрируйте очереди и хендлеры в New, запускайте из application в режиме worker.
+type Consumer struct{}
+
+// New создаёт consumer и регистрирует обработчики очередей.
+func New() *Consumer {
+	return &Consumer{}
+}
+
+// Consume запускает потребление сообщений (блокирующий вызов).
+func (c *Consumer) Consume() {
+	// Добавьте: c.Amqp.Consume(...) или пул воркеров
+}

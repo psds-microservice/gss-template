@@ -1,13 +1,14 @@
+# Seeder image
 FROM golang:1.21-alpine AS builder
 WORKDIR /app
 COPY go.mod ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /{{.Project.K}} ./cmd/{{.Project.K}}
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /{{.Project.K}} ./cmd/{{.Project.K}}
 
 FROM alpine:3.19
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /{{.Project.K}} .
-EXPOSE 8080
-CMD ["./{{.Project.K}}", "api"]
+COPY database/ database/
+CMD ["./{{.Project.K}}", "seeder"]

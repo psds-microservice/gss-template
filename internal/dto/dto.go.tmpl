@@ -1,0 +1,15 @@
+package dto
+
+// DTO — структуры запросов/ответов API и Proto.
+// Добавляйте типы по доменным операциям (например UserCreateRequest, UserResponse).
+
+// ExampleRequest — пример запроса.
+type ExampleRequest struct {
+	ID int64 `json:"id"`
+}
+
+// ExampleResponse — пример ответа.
+type ExampleResponse struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}

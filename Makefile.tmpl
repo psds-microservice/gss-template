@@ -11,7 +11,9 @@ COMMIT_HASH = $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE = $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 PROTOC_IMAGE = local/protoc-go:latest
 PROTO_ROOT = pkg/proto
+# Сгенерированные Go-файлы из proto (go_package → pkg/gen при module=)
 GEN_DIR = pkg/gen
+GO_MODULE = {{.Group}}/{{.Project.K}}
 
 # Главная цель по умолчанию
 .DEFAULT_GOAL := help
@@ -40,7 +42,9 @@ help:
 	@echo "🔧 Управление:"
 	@echo "  make migrate        - Выполнить миграции БД"
 	@echo "  make migrate-create - Создать новую миграцию"
-	@echo "  make worker         - Запустить фоновых воркеров"
+	@echo "  make seed           - Применить сиды"
+	@echo "  make db-init       - Миграции + сиды"
+	@echo "  make worker        - Запустить фоновых воркеров"
 	@echo "  make health-check   - Проверить здоровье сервиса"
 	@echo ""
 	@echo "🧪 Тестирование:"
@@ -55,71 +59,109 @@ help:
 	@echo "  make security-check - Проверка безопасности"
 	@echo ""
 
-## 📦 Proto файлы (образ и entrypoint из psds-microservice/infra)
+## 📦 Proto файлы (образ из https://github.com/psds-microservice/infra)
 proto: proto-build proto-generate
 
+# Сборка образа: из локального infra/ (submodule) или клонирование psds-microservice/infra.
 proto-build:
 	@echo "📦 Building protoc-go image..."
-	docker build -t $(PROTOC_IMAGE) -f infra/protoc-go.Dockerfile .
+	@if [ -f infra/protoc-go.Dockerfile ]; then \
+		echo "Using local infra/ (submodule)..."; \
+		docker build -t $(PROTOC_IMAGE) -f infra/protoc-go.Dockerfile .; \
+	else \
+		echo "Cloning psds-microservice/infra..."; \
+		rm -rf build/infra-repo && mkdir -p build && git clone --depth 1 https://github.com/psds-microservice/infra.git build/infra-repo && \
+		mkdir -p build/infra-repo/infra && cp build/infra-repo/docker-entrypoint.sh build/infra-repo/infra/ && \
+		docker build -t $(PROTOC_IMAGE) -f build/infra-repo/protoc-go.Dockerfile build/infra-repo; \
+	fi
 	@echo "✅ Docker image built"
 
+# Генерация: сначала пробуем локальный protoc (PATH + go install плагины), иначе Docker с --entrypoint sh.
 proto-generate:
-	@echo "🔧 Generating Go code from shared proto files..."
-	docker run --rm \
+	@PATH="$$(go env GOPATH 2>/dev/null)/bin:$$PATH"; \
+	if command -v protoc >/dev/null 2>&1 && command -v protoc-gen-go >/dev/null 2>&1 && command -v protoc-gen-go-grpc >/dev/null 2>&1; then \
+		$(MAKE) proto-generate-local; \
+	else \
+		$(MAKE) proto-generate-docker; \
+	fi
+
+proto-generate-local:
+	@echo "🔧 Generating Go code (local protoc)..."
+	@mkdir -p $(GEN_DIR)
+	@PATH="$$(go env GOPATH)/bin:$$PATH"; \
+	find $(PROTO_ROOT) -name "*.proto" 2>/dev/null | while read f; do \
+		echo "📁 Processing: $$f"; \
+		protoc -I $(PROTO_ROOT) --go_out=. --go_opt=module=$(GO_MODULE) --go-grpc_out=. --go-grpc_opt=module=$(GO_MODULE) "$$f" || exit 1; \
+	done
+	@echo "✅ Generated in $(GEN_DIR)"
+
+# Docker: обходим entrypoint образа infra (--entrypoint sh).
+proto-generate-docker:
+	@echo "🔧 Generating Go code (Docker)..."
+	@mkdir -p $(GEN_DIR)
+	@docker run --rm \
 		-v "$(CURDIR):/workspace" \
-		$(PROTOC_IMAGE)
+		-w /workspace \
+		--entrypoint sh \
+		$(PROTOC_IMAGE) \
+		-c ' \
+		PROTO_ROOT="$(PROTO_ROOT)" MODULE="$(GO_MODULE)" && \
+		find $$PROTO_ROOT -name "*.proto" 2>/dev/null | while read f; do \
+		echo "📁 Processing: $$f" && \
+		protoc -I $$PROTO_ROOT -I /include \
+		--go_out=. --go_opt=module=$$MODULE \
+		--go-grpc_out=. --go-grpc_opt=module=$$MODULE \
+		"$$f" || exit 1; \
+		done && echo "✅ Generated in $(GEN_DIR)" \
+		'
 	@echo "✅ Proto files generated"
 
 proto-pkg:
 	@echo "🚀 Generating for external services (in pkg/gen/)..."
-	@mkdir -p pkg/gen
-	@echo "Using Docker image: $(PROTOC_IMAGE)"
+	@mkdir -p $(GEN_DIR)
 	@docker run --rm \
 		-v "$(CURDIR):/workspace" \
+		-w /workspace \
+		--entrypoint sh \
 		$(PROTOC_IMAGE) \
-		sh -c ' \
-		echo "Finding proto files..." && \
-		find pkg/proto -name "*.proto" | while read f; do \
+		-c ' \
+		find $(PROTO_ROOT) -name "*.proto" | while read f; do \
 		echo "Processing $$f" && \
-		protoc -I pkg/proto -I /include \
-		--go_out=pkg/gen \
-		--go_opt=paths=source_relative \
-		--go-grpc_out=pkg/gen \
-		--go-grpc_opt=paths=source_relative \
-		$$f || exit 1; \
-		done && \
-		echo "✅ Shared library generated in pkg/gen/" \
+		protoc -I $(PROTO_ROOT) -I /include \
+		--go_out=. --go_opt=module=$(GO_MODULE) \
+		--go-grpc_out=. --go-grpc_opt=module=$(GO_MODULE) \
+		"$$f" || exit 1; \
+		done && echo "✅ Shared library generated in $(GEN_DIR)" \
 		'
 	@echo "✅ Shared library generated"
 
 proto-pkg-simple:
 	@echo "🚀 Generating for external services (simple version)..."
-	@mkdir -p pkg/gen
+	@mkdir -p $(GEN_DIR)
 	@docker run --rm \
 		-v "$(CURDIR):/workspace" \
+		-w /workspace \
+		--entrypoint sh \
 		$(PROTOC_IMAGE) \
-		sh -c 'find pkg/proto -name "*.proto" -exec echo "Processing {}" \; -exec protoc -I pkg/proto -I /include --go_out=pkg/gen --go_opt=paths=source_relative --go-grpc_out=pkg/gen --go-grpc_opt=paths=source_relative {} \;'
+		-c 'find $(PROTO_ROOT) -name "*.proto" -exec echo "Processing {}" \; -exec protoc -I $(PROTO_ROOT) -I /include --go_out=. --go_opt=module=$(GO_MODULE) --go-grpc_out=. --go-grpc_opt=module=$(GO_MODULE) {} \;'
 	@echo "✅ Shared library generated in pkg/gen/"
 
 proto-pkg-script:
 	@echo "🚀 Generating via script..."
 	@docker run --rm \
 		-v "$(CURDIR):/workspace" \
+		-w /workspace \
+		--entrypoint sh \
 		$(PROTOC_IMAGE) \
-		sh -c ' \
-		PROTO_ROOT="pkg/proto" && \
-		OUTPUT_DIR="pkg/gen" && \
-		mkdir -p $$OUTPUT_DIR && \
-		find $$PROTO_ROOT -name "*.proto" | while read proto_file; do \
+		-c ' \
+		mkdir -p $(GEN_DIR) && \
+		find $(PROTO_ROOT) -name "*.proto" | while read proto_file; do \
 		echo "📁 Processing: $$proto_file" && \
-		protoc -I pkg/proto -I /include \
-		--go_out=$$OUTPUT_DIR \
-		--go_opt=paths=source_relative \
-		--go-grpc_out=$$OUTPUT_DIR \
-		--go-grpc_opt=paths=source_relative \
-		$$proto_file || exit 1; \
-		done && \
-		echo "✅ Done! Check $$OUTPUT_DIR" \
+		protoc -I $(PROTO_ROOT) -I /include \
+		--go_out=. --go_opt=module=$(GO_MODULE) \
+		--go-grpc_out=. --go-grpc_opt=module=$(GO_MODULE) \
+		"$$proto_file" || exit 1; \
+		done && echo "✅ Done! Check $(GEN_DIR)" \
 		'
 	@echo "✅ Generated via script"
 
@@ -140,21 +182,21 @@ build:
 	@echo "✅ Build complete: $(BIN_DIR)/$(APP_NAME)"
 
 run: build
-	@echo "🚀 Starting server..."
+	@echo "🚀 Starting API server..."
 	@echo "Server will be available at: http://localhost:8080"
 	@echo "Health check: http://localhost:8080/health"
 	@echo ""
-	@cd $(BIN_DIR) && ./$(APP_NAME)
+	@cd $(BIN_DIR) && ./$(APP_NAME) api
 
 run-dev:
 	@echo "🚀 Starting in development mode..."
 	@echo "For hot reload use: make dev"
-	go run ./cmd/{{.Project.K}}
+	go run ./cmd/{{.Project.K}} api
 
 dev:
-	@echo "🔥 Starting with hot reload..."
+	@echo "🔥 Starting API with hot reload..."
 	@if command -v air > /dev/null; then \
-		air; \
+		air -c build/local/.air.toml; \
 	else \
 		echo "⚠ air is not installed. Install: go install github.com/cosmtrek/air@latest"; \
 		echo "Running without hot reload..."; \
@@ -164,16 +206,24 @@ dev:
 ## 🔧 Управление
 migrate: build
 	@echo "🔄 Running migrations..."
-	@cd $(BIN_DIR) && ./$(APP_NAME) migrate up
+	@cd $(BIN_DIR) && ./$(APP_NAME) command migrate
 
 migrate-create: build
 	@echo "📝 Creating migration..."
 	@read -p "Enter migration name: " name; \
-	cd $(BIN_DIR) && ./$(APP_NAME) migrate create --name $$name
+	cd $(BIN_DIR) && ./$(APP_NAME) command migrate-create $$name
+
+seed: build
+	@echo "🌱 Running seeds..."
+	@cd $(BIN_DIR) && ./$(APP_NAME) seeder
+
+db-init: build
+	@echo "🗄️ DB init (migrate + seed)..."
+	@cd $(BIN_DIR) && ./$(APP_NAME) command migrate && ./$(APP_NAME) seeder
 
 worker: build
 	@echo "👷 Starting workers..."
-	@cd $(BIN_DIR) && ./$(APP_NAME) worker --workers 5
+	@cd $(BIN_DIR) && ./$(APP_NAME) worker
 
 health-check:
 	@echo "❤️ Health checking service..."
@@ -272,7 +322,7 @@ run-dual:
 	@echo "HTTP REST: http://localhost:8080"
 	@echo "gRPC: localhost:9090"
 	@echo ""
-	go run ./cmd/{{.Project.K}}
+	go run ./cmd/{{.Project.K}} api
 
 test-dual:
 	@echo "🧪 Testing DUAL API..."

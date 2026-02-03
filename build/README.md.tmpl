@@ -1,9 +1,23 @@
 # Build
 
-- **k8s/** — Dockerfile for production image (Kubernetes).
-- **local/** — Dockerfile and Air config for local development with hot reload.
+## Kubernetes (build/k8s/)
 
-Build image for k8s from project root:
+Отдельные образы под режимы:
+
+- **api.Dockerfile** — API-сервер. `CMD ["./{{.Project.K}}", "api"]`
+- **migrate.Dockerfile** — миграции. `CMD ["./{{.Project.K}}", "command", "migrate"]`
+- **scheduler.Dockerfile** — планировщик. `CMD ["./{{.Project.K}}", "scheduler"]`
+- **seeder.Dockerfile** — сиды. `CMD ["./{{.Project.K}}", "seeder"]`
+- **worker.Dockerfile** — воркер очередей. `CMD ["./{{.Project.K}}", "worker"]`
+
+Сборка с корня проекта:
 ```bash
-docker build -f build/k8s/Dockerfile -t {{.Project.K}}:latest .
+docker build -f build/k8s/api.Dockerfile -t {{.Project.K}}-api:latest .
+docker build -f build/k8s/worker.Dockerfile -t {{.Project.K}}-worker:latest .
 ```
+
+## Local (build/local/)
+
+- **api.Dockerfile** — API с hot reload (air).
+- **scheduler.Dockerfile**, **worker.Dockerfile** — запуск соответствующих режимов.
+- **.air.toml** — конфиг air для API.

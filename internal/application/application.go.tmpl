@@ -1,0 +1,143 @@
+package application
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
+
+	"{{.Group}}/{{.Project.K}}/internal/config"
+	"{{.Group}}/{{.Project.K}}/internal/database"
+	"{{.Group}}/{{.Project.K}}/internal/handler"
+	"{{.Group}}/{{.Project.K}}/internal/model"
+
+	"gorm.io/gorm"
+)
+
+const (
+	TypeApi       = "api"
+	TypeWorker    = "worker"
+	TypeScheduler = "scheduler"
+	TypeCommand   = "command"
+	TypeSeeder    = "seeder"
+)
+
+// Application — фабрика по режиму: api, worker, scheduler, command, seeder.
+type Application struct {
+	Cfg *config.Config
+	DB  *gorm.DB
+	Srv *http.Server
+}
+
+// New создаёт приложение для указанного режима.
+func New(mode string) (*Application, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	app := &Application{Cfg: cfg}
+
+	switch mode {
+	case TypeApi, TypeCommand, TypeSeeder:
+		db, err := database.Open(cfg.DSN())
+		if err != nil {
+			return nil, err
+		}
+		app.DB = db
+		// SQL-миграции из database/migrations (golang-migrate)
+		if mode == TypeApi {
+			if err := database.MigrateUp(cfg.DatabaseURL()); err != nil {
+				return nil, err
+			}
+		}
+		if err := db.AutoMigrate(&model.User{}); err != nil {
+			return nil, err
+		}
+	}
+
+	if mode == TypeApi {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/health", handler.Health)
+		mux.HandleFunc("/ready", handler.Ready)
+		app.Srv = &http.Server{
+			Addr:    ":" + cfg.HTTPPort(),
+			Handler: mux,
+		}
+	}
+
+	return app, nil
+}
+
+// Run запускает API-сервер (режим api).
+func (a *Application) Run() {
+	if a.Srv == nil {
+		log.Fatal("application: Run only for api mode")
+	}
+	go func() {
+		if err := a.Srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("server: %v", err)
+		}
+	}()
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	if err := a.Srv.Shutdown(context.Background()); err != nil {
+		log.Printf("shutdown: %v", err)
+	}
+}
+
+// RunMigrations применяет SQL-миграции из database/migrations (golang-migrate).
+func (a *Application) RunMigrations() error {
+	if a.Cfg == nil {
+		return fmt.Errorf("application: config not initialized")
+	}
+	return database.MigrateUp(a.Cfg.DatabaseURL())
+}
+
+// CreateMigration создаёт пару файлов миграции в database/migrations (golang-migrate: .up.sql, .down.sql).
+func (a *Application) CreateMigration(name string) error {
+	dir := "database/migrations"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	// Используем timestamp для порядка: 000001_name.up.sql / .down.sql
+	base := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+	upPath := filepath.Join(dir, base+".up.sql")
+	downPath := filepath.Join(dir, base+".down.sql")
+	if err := os.WriteFile(upPath, []byte("-- migration up: "+name+"\n"), 0644); err != nil {
+		return err
+	}
+	return os.WriteFile(downPath, []byte("-- migration down: "+name+"\n"), 0644)
+}
+
+// RunWorker запускает воркер очередей (заглушка: добавьте RabbitMQ consumer).
+func (a *Application) RunWorker() {
+	log.Println("worker: stub — add internal/consumer and message queue")
+	select {}
+}
+
+// RunScheduler запускает планировщик (заглушка: добавьте cron/periodic jobs).
+func (a *Application) RunScheduler() {
+	log.Println("scheduler: stub — add internal/scheduler and jobs")
+	select {}
+}
+
+// RunSeeder применяет миграции и сиды из database/seeds (SQL-файлы по порядку).
+func (a *Application) RunSeeder() {
+	if a.Cfg == nil || a.DB == nil {
+		log.Fatal("seeder: config or DB not initialized")
+	}
+	if err := database.MigrateUp(a.Cfg.DatabaseURL()); err != nil {
+		log.Fatalf("seeder: migrate: %v", err)
+	}
+	if err := database.RunSeeds(a.DB); err != nil {
+		log.Fatalf("seeder: %v", err)
+	}
+	log.Println("seeder: done")
+}

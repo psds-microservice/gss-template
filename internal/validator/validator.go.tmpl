@@ -1,0 +1,32 @@
+package validator
+
+import (
+	"context"
+	"errors"
+
+	"{{.Group}}/{{.Project.K}}/internal/dto"
+)
+
+// IValidator — агрегат валидаторов входящих данных (в т.ч. через внешние gRPC-сервисы).
+type IValidator interface {
+	ValidateExample(ctx context.Context, req *dto.ExampleRequest) error
+}
+
+// Validator — реализация IValidator.
+type Validator struct{}
+
+// New создаёт валидатор.
+func New() IValidator {
+	return &Validator{}
+}
+
+// ValidateExample проверяет запрос (заглушка: добавьте правила и вызовы внешних сервисов).
+func (v *Validator) ValidateExample(ctx context.Context, req *dto.ExampleRequest) error {
+	if req == nil {
+		return errors.New("request is nil")
+	}
+	if req.ID <= 0 {
+		return errors.New("id must be positive")
+	}
+	return nil
+}

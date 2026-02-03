@@ -1,0 +1,66 @@
+package cmd
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/spf13/cobra"
+
+	"{{.Group}}/{{.Project.K}}/internal/application"
+)
+
+var commandCmd = &cobra.Command{
+	Use:   "command [name]",
+	Short: "Run one-time command",
+	Long:  `Run one-time command: migrate, migrate-create, etc.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		commands := map[string]string{
+			"migrate":        "Run database migrations",
+			"migrate-create": "Create new migration file",
+		}
+		if len(args) == 0 {
+			fmt.Println("available commands:")
+			for name, desc := range commands {
+				fmt.Printf("  %-16s %s\n", name, desc)
+			}
+			return
+		}
+		name := args[0]
+		if _, ok := commands[name]; !ok {
+			log.Fatalf("unknown command: %s", name)
+		}
+
+		app, err := application.New(application.TypeCommand)
+		if err != nil {
+			log.Fatalf("application: %v", err)
+		}
+
+		switch name {
+		case "migrate":
+			log.Println("running migrations...")
+			if err := app.RunMigrations(); err != nil {
+				log.Fatalf("migrate: %v", err)
+			}
+			log.Println("migrations done")
+		case "migrate-create":
+			migrationName := ""
+			if len(args) > 1 {
+				migrationName = args[1]
+			} else {
+				fmt.Print("Enter migration name: ")
+				_, _ = fmt.Scanln(&migrationName)
+			}
+			if migrationName == "" {
+				log.Fatal("migration name required")
+			}
+			if err := app.CreateMigration(migrationName); err != nil {
+				log.Fatalf("migrate-create: %v", err)
+			}
+			log.Println("migration file created")
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(commandCmd)
+}

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 )
 
@@ -42,6 +43,13 @@ func Load() (*Config, error) {
 func (c *Config) DSN() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		c.DB.Host, c.DB.Port, c.DB.User, c.DB.Password, c.DB.Database, c.DB.SSLMode)
+}
+
+// DatabaseURL возвращает postgres URL для golang-migrate (postgres://user:pass@host:port/dbname?sslmode=...).
+func (c *Config) DatabaseURL() string {
+	pass := url.QueryEscape(c.DB.Password)
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.DB.User, pass, c.DB.Host, c.DB.Port, c.DB.Database, c.DB.SSLMode)
 }
 
 func (c *Config) HTTPPort() string {

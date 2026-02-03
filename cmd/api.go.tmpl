@@ -1,0 +1,27 @@
+package cmd
+
+import (
+	"context"
+	"log"
+
+	"github.com/spf13/cobra"
+
+	"{{.Group}}/{{.Project.K}}/internal/application"
+)
+
+var apiCmd = &cobra.Command{
+	Use:   "api",
+	Short: "Run API server",
+	Long:  `Start HTTP API server.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		app, err := application.New(application.TypeApi)
+		if err != nil {
+			log.Fatalf("application: %v", err)
+		}
+		app.Run()
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(apiCmd)
+}

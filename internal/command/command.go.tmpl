@@ -1,0 +1,16 @@
+package command
+
+import (
+	"{{.Group}}/{{.Project.K}}/internal/config"
+)
+
+// Command — разовые CLI-команды (migrate, sync, search и т.д.).
+// Регистрируются в cmd/command.go и вызывают usecase/service.
+type Command struct {
+	Cfg *config.Config
+}
+
+// New создаёт агрегатор команд.
+func New(cfg *config.Config) *Command {
+	return &Command{Cfg: cfg}
+}

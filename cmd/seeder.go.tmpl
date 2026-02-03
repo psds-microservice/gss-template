@@ -1,0 +1,26 @@
+package cmd
+
+import (
+	"log"
+
+	"github.com/spf13/cobra"
+
+	"{{.Group}}/{{.Project.K}}/internal/application"
+)
+
+var seederCmd = &cobra.Command{
+	Use:   "seeder",
+	Short: "Run database seeder",
+	Long:  `Apply seed data to database.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		app, err := application.New(application.TypeSeeder)
+		if err != nil {
+			log.Fatalf("application: %v", err)
+		}
+		app.RunSeeder()
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(seederCmd)
+}

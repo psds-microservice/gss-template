@@ -3,24 +3,34 @@
     "git": [["init"]],
     "go": [
       ["mod", "tidy"],
-      ["get", "gorm.io/gorm", "gorm.io/driver/postgres"]
+      ["get", "gorm.io/gorm", "gorm.io/driver/postgres"],
+      ["get", "github.com/spf13/cobra@latest"],
+      ["get", "github.com/golang-migrate/migrate/v4"]
     ]
   },
   "copy": {},
   "gitkeep": [
     "/database/migrations",
     "/database/seeds",
-    "/internal/dto",
-    "/deployments/data"
+    "/deployments/data",
+    "/infra"
   ],
   "mkdir": [
+    "/cmd",
     "/cmd/{{.Project.K}}",
+    "/internal/application",
+    "/internal/command",
     "/internal/config",
+    "/internal/consumer",
+    "/internal/dto",
     "/internal/handler",
+    "/internal/mapper",
     "/internal/model",
     "/internal/database",
     "/internal/service",
+    "/internal/validator",
     "/pkg/{{.Project.S}}",
+    "/pkg/proto",
     "/pkg/gen",
     "/database/migrations",
     "/database/seeds",
@@ -29,7 +39,8 @@
     "/build/local",
     "/deployments",
     "/deployments/data",
-    "/infra"
+    "/infra",
+    "/api"
   ],
   "render": [
     { "from": "/go.mod.tmpl", "to": "/go.mod" },
@@ -38,20 +49,40 @@
     { "from": "/.gitignore.tmpl", "to": "/.gitignore" },
     { "from": "/Makefile.tmpl", "to": "/Makefile" },
     { "from": "/cmd/main.go.tmpl", "to": "/cmd/{{.Project.K}}/main.go" },
+    { "from": "/cmd/root.go.tmpl", "to": "/cmd/root.go" },
+    { "from": "/cmd/api.go.tmpl", "to": "/cmd/api.go" },
+    { "from": "/cmd/command.go.tmpl", "to": "/cmd/command.go" },
+    { "from": "/cmd/worker.go.tmpl", "to": "/cmd/worker.go" },
+    { "from": "/cmd/scheduler.go.tmpl", "to": "/cmd/scheduler.go" },
+    { "from": "/cmd/seeder.go.tmpl", "to": "/cmd/seeder.go" },
+    { "from": "/internal/application/application.go.tmpl", "to": "/internal/application/application.go" },
     { "from": "/internal/config/config.go.tmpl", "to": "/internal/config/config.go" },
     { "from": "/internal/model/entity.go.tmpl", "to": "/internal/model/entity.go" },
     { "from": "/internal/database/database.go.tmpl", "to": "/internal/database/database.go" },
+    { "from": "/internal/database/migrate.go.tmpl", "to": "/internal/database/migrate.go" },
+    { "from": "/internal/database/seed.go.tmpl", "to": "/internal/database/seed.go" },
     { "from": "/internal/handler/healthcheck.go.tmpl", "to": "/internal/handler/healthcheck.go" },
     { "from": "/internal/service/service.go.tmpl", "to": "/internal/service/service.go" },
+    { "from": "/internal/command/command.go.tmpl", "to": "/internal/command/command.go" },
+    { "from": "/internal/consumer/consumer.go.tmpl", "to": "/internal/consumer/consumer.go" },
+    { "from": "/internal/dto/dto.go.tmpl", "to": "/internal/dto/dto.go" },
+    { "from": "/internal/mapper/mapper.go.tmpl", "to": "/internal/mapper/mapper.go" },
+    { "from": "/internal/validator/validator.go.tmpl", "to": "/internal/validator/validator.go" },
     { "from": "/ci/github/workflows.yml.tmpl", "to": "/.github/workflows/ci.yml", "ci": "github" },
     { "from": "/ci/gitlab/.gitlab-ci.yml.tmpl", "to": "/.gitlab-ci.yml", "ci": "gitlab" },
     { "from": "/deployments/docker-compose.yml.tmpl", "to": "/deployments/docker-compose.yml" },
     { "from": "/deployments/Dockerfile.tmpl", "to": "/deployments/Dockerfile" },
-    { "from": "/build/k8s/Dockerfile.tmpl", "to": "/build/k8s/Dockerfile" },
-    { "from": "/build/local/Dockerfile.tmpl", "to": "/build/local/Dockerfile" },
+    { "from": "/build/k8s/api.Dockerfile.tmpl", "to": "/build/k8s/api.Dockerfile" },
+    { "from": "/build/k8s/migrate.Dockerfile.tmpl", "to": "/build/k8s/migrate.Dockerfile" },
+    { "from": "/build/k8s/scheduler.Dockerfile.tmpl", "to": "/build/k8s/scheduler.Dockerfile" },
+    { "from": "/build/k8s/seeder.Dockerfile.tmpl", "to": "/build/k8s/seeder.Dockerfile" },
+    { "from": "/build/k8s/worker.Dockerfile.tmpl", "to": "/build/k8s/worker.Dockerfile" },
+    { "from": "/build/local/api.Dockerfile.tmpl", "to": "/build/local/api.Dockerfile" },
+    { "from": "/build/local/scheduler.Dockerfile.tmpl", "to": "/build/local/scheduler.Dockerfile" },
+    { "from": "/build/local/worker.Dockerfile.tmpl", "to": "/build/local/worker.Dockerfile" },
     { "from": "/build/local/.air.toml.tmpl", "to": "/build/local/.air.toml" },
     { "from": "/build/README.md.tmpl", "to": "/build/README.md" },
-    { "from": "/infra/protoc-go.Dockerfile.tmpl", "to": "/infra/protoc-go.Dockerfile" },
-    { "from": "/infra/docker-entrypoint.sh.tmpl", "to": "/infra/docker-entrypoint.sh" }
+    { "from": "/infra/README.md.tmpl", "to": "/infra/README.md" },
+    { "from": "/api/api.swagger.json.tmpl", "to": "/api/api.swagger.json" }
   ]
 }

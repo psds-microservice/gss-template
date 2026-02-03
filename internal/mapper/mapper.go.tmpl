@@ -1,0 +1,30 @@
+package mapper
+
+import (
+	"context"
+
+	"{{.Group}}/{{.Project.K}}/internal/dto"
+	"{{.Group}}/{{.Project.K}}/internal/model"
+)
+
+// Mapper — преобразование entity ↔ dto (и вызовы внешних сервисов при необходимости).
+// Добавляйте методы и интерфейсы по доменным сущностям.
+
+// UserMapper маппит User entity в DTO.
+type UserMapper struct{}
+
+// NewUserMapper создаёт маппер.
+func NewUserMapper() *UserMapper {
+	return &UserMapper{}
+}
+
+// ToResponse преобразует entity в response DTO.
+func (m *UserMapper) ToResponse(ctx context.Context, u *model.User) *dto.ExampleResponse {
+	if u == nil {
+		return nil
+	}
+	return &dto.ExampleResponse{
+		ID:   int64(u.ID),
+		Name: u.Name,
+	}
+}

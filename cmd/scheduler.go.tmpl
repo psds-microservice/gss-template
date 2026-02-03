@@ -1,0 +1,26 @@
+package cmd
+
+import (
+	"log"
+
+	"github.com/spf13/cobra"
+
+	"{{.Group}}/{{.Project.K}}/internal/application"
+)
+
+var schedulerCmd = &cobra.Command{
+	Use:   "scheduler",
+	Short: "Run scheduler",
+	Long:  `Start scheduled jobs.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		app, err := application.New(application.TypeScheduler)
+		if err != nil {
+			log.Fatalf("application: %v", err)
+		}
+		app.RunScheduler()
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(schedulerCmd)
+}
