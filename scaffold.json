@@ -21,7 +21,6 @@
     "/internal/database",
     "/internal/service",
     "/pkg/{{.Project.S}}",
-    "/pkg/proto",
     "/pkg/gen",
     "/database/migrations",
     "/database/seeds",
