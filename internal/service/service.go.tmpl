@@ -1,8 +1,17 @@
 package service
 
-// Service — слой бизнес-логики. Добавьте методы по мере необходимости.
-type Service struct{}
+// Service — контракт слоя бизнес-логики. Интерфейс объявлен в том же файле, что и реализация.
+// Вызывающий код (handlers, grpc) зависит от интерфейса; в тестах можно подставлять моки.
+type Service interface {
+	// Добавьте методы по мере необходимости, например:
+	// GetByID(ctx context.Context, id string) (*model.Entity, error)
+}
 
-func New() *Service {
-	return &Service{}
+type serviceImpl struct {
+	// зависимости, например *gorm.DB или другие интерфейсы
+}
+
+// New создаёт реализацию Service. Возвращается интерфейс, а не конкретный тип.
+func New() Service {
+	return &serviceImpl{}
 }

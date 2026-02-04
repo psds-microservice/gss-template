@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,12 +12,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"{{.Group}}/{{.Project.K}}/internal/config"
 	"{{.Group}}/{{.Project.K}}/internal/database"
+	grpcserver "{{.Group}}/{{.Project.K}}/internal/grpc"
 	"{{.Group}}/{{.Project.K}}/internal/handler"
 	"{{.Group}}/{{.Project.K}}/internal/model"
 	"{{.Group}}/{{.Project.K}}/pkg/constants"
+	"{{.Group}}/{{.Project.K}}/pkg/gen/proto"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"gorm.io/gorm"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -58,9 +64,11 @@ func serveOpenAPISpec() http.HandlerFunc {
 
 // Application — фабрика по режиму: api, worker, scheduler, command, seeder.
 type Application struct {
-	Cfg *config.Config
-	DB  *gorm.DB
-	Srv *http.Server
+	Cfg       *config.Config
+	DB        *gorm.DB
+	Srv       *http.Server
+	GrpcSrv   *grpc.Server
+	grpcLis   net.Listener
 }
 
 // New создаёт приложение для указанного режима.
@@ -94,6 +102,23 @@ func New(mode string) (*Application, error) {
 	}
 
 	if mode == TypeApi {
+		grpcAddr := cfg.AppHost + ":" + cfg.GRPCPort()
+		lis, err := net.Listen("tcp", grpcAddr)
+		if err != nil {
+			return nil, fmt.Errorf("grpc listen %s: %w", grpcAddr, err)
+		}
+		app.grpcLis = lis
+		grpcSrv := grpc.NewServer()
+		gwImpl := grpcserver.NewServer(grpcserver.Deps{})
+		proto.RegisterApiServiceServer(grpcSrv, gwImpl)
+		reflection.Register(grpcSrv)
+		app.GrpcSrv = grpcSrv
+
+		gatewayMux := runtime.NewServeMux()
+		if err := proto.RegisterApiServiceHandlerServer(context.Background(), gatewayMux, gwImpl); err != nil {
+			return nil, fmt.Errorf("register grpc-gateway: %w", err)
+		}
+
 		mux := http.NewServeMux()
 		mux.HandleFunc(constants.PathHealth, handler.Health)
 		mux.HandleFunc(constants.PathReady, handler.Ready)
@@ -103,6 +128,7 @@ func New(mode string) (*Application, error) {
 			httpSwagger.DeepLinking(true),
 			httpSwagger.DocExpansion("list"),
 		))
+		mux.Handle("/", gatewayMux)
 		app.Srv = &http.Server{
 			Addr:              cfg.AppHost + ":" + cfg.HTTPPort(),
 			Handler:           mux,
@@ -116,24 +142,32 @@ func New(mode string) (*Application, error) {
 	return app, nil
 }
 
-// Run запускает API-сервер (режим api).
+// Run запускает HTTP (и grpc-gateway) и gRPC серверы (режим api).
 func (a *Application) Run() {
 	if a.Srv == nil {
 		log.Fatal("application: Run only for api mode")
 	}
 	go func() {
 		if err := a.Srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("server: %v", err)
+			log.Printf("http: %v", err)
 		}
 	}()
+	go func() {
+		if err := a.GrpcSrv.Serve(a.grpcLis); err != nil {
+			log.Printf("grpc: %v", err)
+		}
+	}()
+	log.Printf("HTTP (grpc-gateway): %s", a.Srv.Addr)
+	log.Printf("gRPC: %s", a.grpcLis.Addr().String())
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := a.Srv.Shutdown(ctx); err != nil {
-		log.Printf("shutdown: %v", err)
+		log.Printf("http shutdown: %v", err)
 	}
+	a.GrpcSrv.GracefulStop()
 }
 
 // RunMigrations применяет SQL-миграции из database/migrations (golang-migrate).

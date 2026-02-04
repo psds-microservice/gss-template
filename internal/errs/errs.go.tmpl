@@ -1,0 +1,9 @@
+package errs
+
+import "errors"
+
+// Доменные сентинель-ошибки для маппинга в gRPC/HTTP коды (handlers/grpc mapError).
+// Добавьте свои ошибки по мере необходимости.
+var (
+	ErrNotFound = errors.New("not found")
+)

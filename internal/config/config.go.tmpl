@@ -10,6 +10,7 @@ import (
 type Config struct {
 	AppHost  string // APP_HOST — биндинг (0.0.0.0 / localhost)
 	HTTPPort string // HTTP_PORT
+	GRPCPort string // GRPC_PORT — порт gRPC (для grpc-gateway и нативных клиентов)
 	AppEnv   string // APP_ENV — production / development
 	DB       struct {
 		Host     string
@@ -42,6 +43,7 @@ func Load() (*Config, error) {
 	c := &Config{
 		AppHost:  getEnv("APP_HOST", "0.0.0.0"),
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
+		GRPCPort: getEnv("GRPC_PORT", "9090"),
 		AppEnv:   getEnv("APP_ENV", "development"),
 		DB: struct {
 			Host     string
@@ -79,6 +81,14 @@ func (c *Config) HTTPPort() string {
 		return "8080"
 	}
 	return c.HTTPPort
+}
+
+// GRPCPort returns the gRPC server port (default 9090).
+func (c *Config) GRPCPort() string {
+	if c.GRPCPort == "" {
+		return "9090"
+	}
+	return c.GRPCPort
 }
 
 func getEnv(key, def string) string {

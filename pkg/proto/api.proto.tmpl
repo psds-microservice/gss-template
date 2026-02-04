@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "{{.Group}}/{{.Project.K}}/pkg/gen/proto;proto";
+
+import "google/api/annotations.proto";
+
+// ApiService — скелет сервиса. Добавьте RPC и сообщения по мере необходимости.
+service ApiService {
+  rpc Health (HealthRequest) returns (HealthResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/health"
+    };
+  }
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+}

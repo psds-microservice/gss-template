@@ -1,0 +1,45 @@
+package grpc
+
+import (
+	"context"
+	"errors"
+
+	"{{.Group}}/{{.Project.K}}/internal/errs"
+	"{{.Group}}/{{.Project.K}}/pkg/gen/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+// Deps — зависимости gRPC-сервера. Добавьте сервисы (интерфейсы из internal/service) по мере необходимости.
+type Deps struct {
+	// Пример: Service service.Service
+}
+
+// Server реализует proto.ApiServiceServer.
+type Server struct {
+	proto.UnimplementedApiServiceServer
+	Deps
+}
+
+// NewServer создаёт gRPC-сервер.
+func NewServer(deps Deps) *Server {
+	return &Server{Deps: deps}
+}
+
+// Health — скелет RPC (GET /api/v1/health через grpc-gateway).
+func (s *Server) Health(ctx context.Context, req *proto.HealthRequest) (*proto.HealthResponse, error) {
+	return &proto.HealthResponse{Status: "ok"}, nil
+}
+
+// mapError маппит доменные ошибки (internal/errs) в gRPC codes. Расширьте под свои errs.
+func (s *Server) mapError(err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.Is(err, errs.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	default:
+		return status.Error(codes.Internal, "internal error")
+	}
+}

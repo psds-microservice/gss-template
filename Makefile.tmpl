@@ -11,8 +11,8 @@ COMMIT_HASH = $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE = $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 PROTOC_IMAGE = local/protoc-go:latest
 PROTO_ROOT = pkg/proto
-# Сгенерированные Go-файлы из proto (go_package → pkg/gen при module=)
-GEN_DIR = pkg/gen
+# Сгенерированные Go-файлы (go_package → pkg/gen/proto)
+GEN_DIR = pkg/gen/proto
 GO_MODULE = {{.Group}}/{{.Project.K}}
 # OpenAPI/Swagger: при использовании proto с google.api.http — make proto-openapi; иначе положите api/openapi.json вручную
 OPENAPI_OUT = api
@@ -93,18 +93,24 @@ proto-generate:
 	fi
 
 proto-generate-local:
-	@echo "🔧 Generating Go code (local protoc)..."
+	@echo "🔧 Generating Go code (local protoc, incl. grpc-gateway)..."
+	@command -v protoc-gen-grpc-gateway >/dev/null 2>&1 || (echo "Установите: go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest" && exit 1)
 	@mkdir -p $(GEN_DIR)
 	@PATH="$$(go env GOPATH)/bin:$$PATH"; \
-	find $(PROTO_ROOT) -name "*.proto" 2>/dev/null | while read f; do \
+	for f in $(PROTO_ROOT)/*.proto; do \
+		[ -f "$$f" ] || continue; \
 		echo "📁 Processing: $$f"; \
-		protoc -I $(PROTO_ROOT) --go_out=. --go_opt=module=$(GO_MODULE) --go-grpc_out=. --go-grpc_opt=module=$(GO_MODULE) "$$f" || exit 1; \
+		protoc -I $(PROTO_ROOT) -I third_party \
+			--go_out=. --go_opt=module=$(GO_MODULE) \
+			--go-grpc_out=. --go-grpc_opt=module=$(GO_MODULE) \
+			--grpc-gateway_out=. --grpc-gateway_opt=module=$(GO_MODULE) \
+			"$$f" || exit 1; \
 	done
 	@echo "✅ Generated in $(GEN_DIR)"
 
 # Docker: обходим entrypoint образа infra (--entrypoint sh).
 proto-generate-docker:
-	@echo "🔧 Generating Go code (Docker)..."
+	@echo "🔧 Generating Go code (Docker, incl. grpc-gateway)..."
 	@mkdir -p $(GEN_DIR)
 	@docker run --rm \
 		-v "$(CURDIR):/workspace" \
@@ -113,12 +119,14 @@ proto-generate-docker:
 		$(PROTOC_IMAGE) \
 		-c ' \
 		PROTO_ROOT="$(PROTO_ROOT)" MODULE="$(GO_MODULE)" && \
-		find $$PROTO_ROOT -name "*.proto" 2>/dev/null | while read f; do \
-		echo "📁 Processing: $$f" && \
-		protoc -I $$PROTO_ROOT -I /include \
-		--go_out=. --go_opt=module=$$MODULE \
-		--go-grpc_out=. --go-grpc_opt=module=$$MODULE \
-		"$$f" || exit 1; \
+		for f in $$PROTO_ROOT/*.proto; do \
+			[ -f "$$f" ] || continue; \
+			echo "📁 Processing: $$f" && \
+			protoc -I $$PROTO_ROOT -I third_party \
+			--go_out=. --go_opt=module=$$MODULE \
+			--go-grpc_out=. --go-grpc_opt=module=$$MODULE \
+			--grpc-gateway_out=. --grpc-gateway_opt=module=$$MODULE \
+			"$$f" || exit 1; \
 		done && echo "✅ Generated in $(GEN_DIR)" \
 		'
 	@echo "✅ Proto files generated"
@@ -174,8 +182,7 @@ proto-pkg-script:
 
 proto-clean:
 	@echo "🧹 Cleaning generated files..."
-	@if exist "internal\gen" rmdir /s /q "internal\gen" 2>nul || rm -rf pkg/gen
-	@if exist "pkg\gen" rmdir /s /q "pkg\gen" 2>nul || rm -rf pkg/gen
+	@rm -rf $(GEN_DIR) 2>/dev/null || true
 	@echo "✅ Clean complete"
 
 ## 📄 OpenAPI/Swagger из proto (при наличии .proto с google.api.http и third_party)
@@ -184,19 +191,13 @@ proto-openapi:
 	command -v protoc-gen-openapiv2 >/dev/null 2>&1 || (echo "Установите: go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest" && exit 1)
 	@mkdir -p $(OPENAPI_OUT)
 	@PATH="$$(go env GOPATH)/bin:$$PATH"; \
-	if [ -d third_party ]; then \
-		files="$$(find $(PROTO_ROOT) -name '*.proto' 2>/dev/null)"; \
-		if [ -n "$$files" ]; then \
-			protoc -I $(PROTO_ROOT) -I third_party --openapiv2_out=$(OPENAPI_OUT) \
-				--openapiv2_opt=logtostderr=true --openapiv2_opt=allow_merge=true --openapiv2_opt=merge_file_name=openapi $$files && \
-			(test -f $(OPENAPI_OUT)/openapi.swagger.json && cp $(OPENAPI_OUT)/openapi.swagger.json $(OPENAPI_OUT)/openapi.json || true) && \
-			echo "✅ OpenAPI: $(OPENAPI_SPEC)"; \
-		else \
-			echo "⚠ Нет .proto в $(PROTO_ROOT). Положите api/openapi.json вручную."; \
-		fi; \
-	else \
-		echo "⚠ third_party/ не найден. Положите api/openapi.json вручную или добавьте third_party (google/api) и proto с google.api.http"; \
-	fi
+	protoc -I $(PROTO_ROOT) -I third_party \
+		--openapiv2_out=$(OPENAPI_OUT) \
+		--openapiv2_opt=logtostderr=true \
+		--openapiv2_opt=allow_merge=true \
+		--openapiv2_opt=merge_file_name=openapi \
+		$(PROTO_ROOT)/api.proto
+	@if [ -f $(OPENAPI_OUT)/openapi.swagger.json ]; then cp $(OPENAPI_OUT)/openapi.swagger.json $(OPENAPI_OUT)/openapi.json; echo "✅ OpenAPI: $(OPENAPI_SPEC)"; elif [ -f $(OPENAPI_OUT)/openapi.json ]; then echo "✅ OpenAPI: $(OPENAPI_SPEC)"; else echo "⚠ Проверьте вывод protoc"; fi
 
 ## 🏗️ Сборка и запуск
 build:
