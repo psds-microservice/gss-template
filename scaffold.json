@@ -100,7 +100,6 @@
     { "from": "/build/local/worker.Dockerfile.tmpl", "to": "/build/local/worker.Dockerfile" },
     { "from": "/build/local/.air.toml.tmpl", "to": "/build/local/.air.toml" },
     { "from": "/build/README.md.tmpl", "to": "/build/README.md" },
-    { "from": "/infra/README.md.tmpl", "to": "/infra/README.md" },
     { "from": "/api/api.swagger.json.tmpl", "to": "/api/api.swagger.json" }
   ]
 }
