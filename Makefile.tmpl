@@ -14,6 +14,9 @@ PROTO_ROOT = pkg/proto
 # Сгенерированные Go-файлы из proto (go_package → pkg/gen при module=)
 GEN_DIR = pkg/gen
 GO_MODULE = {{.Group}}/{{.Project.K}}
+# OpenAPI/Swagger: при использовании proto с google.api.http — make proto-openapi; иначе положите api/openapi.json вручную
+OPENAPI_OUT = api
+OPENAPI_SPEC = $(OPENAPI_OUT)/openapi.json
 
 # Главная цель по умолчанию
 .DEFAULT_GOAL := help
@@ -53,10 +56,14 @@ help:
 	@echo "  make test-db        - Тестирование БД"
 	@echo "  make bench          - Бенчмарки"
 	@echo "  make load-test      - Нагрузочное тестирование"
-	@echo "  make lint           - Линтинг кода"
+	@echo "  make lint            - Линтинг кода"
 	@echo "  make vet            - Проверка кода"
 	@echo "  make fmt            - Форматирование кода"
 	@echo "  make security-check - Проверка безопасности"
+	@echo ""
+	@echo "📄 OpenAPI/Swagger:"
+	@echo "  make proto-openapi  - Сгенерировать OpenAPI из .proto (нужны protoc, protoc-gen-openapiv2)"
+	@echo "  Swagger UI:        http://localhost:8080/swagger/index.html (спека: api/openapi.json)"
 	@echo ""
 
 ## 📦 Proto файлы (образ из https://github.com/psds-microservice/infra)
@@ -170,6 +177,26 @@ proto-clean:
 	@if exist "internal\gen" rmdir /s /q "internal\gen" 2>nul || rm -rf pkg/gen
 	@if exist "pkg\gen" rmdir /s /q "pkg\gen" 2>nul || rm -rf pkg/gen
 	@echo "✅ Clean complete"
+
+## 📄 OpenAPI/Swagger из proto (при наличии .proto с google.api.http и third_party)
+proto-openapi:
+	@command -v protoc >/dev/null 2>&1 || (echo "Установите protoc" && exit 1); \
+	command -v protoc-gen-openapiv2 >/dev/null 2>&1 || (echo "Установите: go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest" && exit 1)
+	@mkdir -p $(OPENAPI_OUT)
+	@PATH="$$(go env GOPATH)/bin:$$PATH"; \
+	if [ -d third_party ]; then \
+		files="$$(find $(PROTO_ROOT) -name '*.proto' 2>/dev/null)"; \
+		if [ -n "$$files" ]; then \
+			protoc -I $(PROTO_ROOT) -I third_party --openapiv2_out=$(OPENAPI_OUT) \
+				--openapiv2_opt=logtostderr=true --openapiv2_opt=allow_merge=true --openapiv2_opt=merge_file_name=openapi $$files && \
+			(test -f $(OPENAPI_OUT)/openapi.swagger.json && cp $(OPENAPI_OUT)/openapi.swagger.json $(OPENAPI_OUT)/openapi.json || true) && \
+			echo "✅ OpenAPI: $(OPENAPI_SPEC)"; \
+		else \
+			echo "⚠ Нет .proto в $(PROTO_ROOT). Положите api/openapi.json вручную."; \
+		fi; \
+	else \
+		echo "⚠ third_party/ не найден. Положите api/openapi.json вручную или добавьте third_party (google/api) и proto с google.api.http"; \
+	fi
 
 ## 🏗️ Сборка и запуск
 build:
@@ -292,6 +319,8 @@ generate-docs: build
 install-deps:
 	@echo "📦 Installing dependencies..."
 	go mod download
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
 	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
 	@echo "✅ Dependencies installed"
@@ -300,8 +329,9 @@ update:
 	@echo "🔄 Updating dependencies..."
 	go get -u ./...
 	go mod tidy
-    go mod vendor
-    make proto
+	go mod vendor
+	$(MAKE) proto
+	@$(MAKE) proto-openapi 2>/dev/null || true
 	@echo "✅ Dependencies updated"
 
 init: install-deps proto

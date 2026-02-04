@@ -8,6 +8,7 @@ import (
 )
 
 // IValidator — агрегат валидаторов входящих данных (в т.ч. через внешние gRPC-сервисы).
+// Паттерн: вызывать до вызова сервиса; при ошибке возвращать HTTP 400 или gRPC codes.InvalidArgument с понятным сообщением.
 type IValidator interface {
 	ValidateExample(ctx context.Context, req *dto.ExampleRequest) error
 }

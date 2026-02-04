@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
+          # Синхронизировать с версией в go.mod
           go-version: '1.21'
       - run: go mod tidy
       - run: go build ./...

@@ -1,13 +1,16 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 )
 
 type Config struct {
-	HTTPPort string
+	AppHost  string // APP_HOST — биндинг (0.0.0.0 / localhost)
+	HTTPPort string // HTTP_PORT
+	AppEnv   string // APP_ENV — production / development
 	DB       struct {
 		Host     string
 		Port     string
@@ -18,9 +21,28 @@ type Config struct {
 	}
 }
 
+// Validate проверяет обязательные поля конфига. В production обязателен DB_PASSWORD.
+func (c *Config) Validate() error {
+	if c.DB.Host == "" {
+		return errors.New("config: DB_HOST is required")
+	}
+	if c.DB.User == "" {
+		return errors.New("config: DB_USER is required")
+	}
+	if c.DB.Database == "" {
+		return errors.New("config: DB_DATABASE is required")
+	}
+	if c.AppEnv == "production" && c.DB.Password == "" {
+		return errors.New("config: in production DB_PASSWORD is required")
+	}
+	return nil
+}
+
 func Load() (*Config, error) {
 	c := &Config{
+		AppHost:  getEnv("APP_HOST", "0.0.0.0"),
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
+		AppEnv:   getEnv("APP_ENV", "development"),
 		DB: struct {
 			Host     string
 			Port     string

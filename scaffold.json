@@ -5,7 +5,10 @@
       ["mod", "tidy"],
       ["get", "gorm.io/gorm", "gorm.io/driver/postgres"],
       ["get", "github.com/spf13/cobra@latest"],
-      ["get", "github.com/golang-migrate/migrate/v4"]
+      ["get", "github.com/golang-migrate/migrate/v4"],
+      ["get", "github.com/joho/godotenv@latest"],
+      ["get", "github.com/swaggo/http-swagger@latest"],
+      ["get", "github.com/swaggo/files@latest"]
     ]
   },
   "copy": {},
@@ -32,6 +35,7 @@
     "/pkg/{{.Project.S}}",
     "/pkg/proto",
     "/pkg/gen",
+    "/pkg/constants",
     "/database/migrations",
     "/database/seeds",
     "/build",
@@ -68,6 +72,7 @@
     { "from": "/internal/dto/dto.go.tmpl", "to": "/internal/dto/dto.go" },
     { "from": "/internal/mapper/mapper.go.tmpl", "to": "/internal/mapper/mapper.go" },
     { "from": "/internal/validator/validator.go.tmpl", "to": "/internal/validator/validator.go" },
+    { "from": "/pkg/constants/paths.go.tmpl", "to": "/pkg/constants/paths.go" },
     { "from": "/ci/github/workflows.yml.tmpl", "to": "/.github/workflows/ci.yml", "ci": "github" },
     { "from": "/ci/gitlab/.gitlab-ci.yml.tmpl", "to": "/.gitlab-ci.yml", "ci": "gitlab" },
     { "from": "/deployments/docker-compose.yml.tmpl", "to": "/deployments/docker-compose.yml" },

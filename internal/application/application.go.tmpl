@@ -15,8 +15,10 @@ import (
 	"{{.Group}}/{{.Project.K}}/internal/database"
 	"{{.Group}}/{{.Project.K}}/internal/handler"
 	"{{.Group}}/{{.Project.K}}/internal/model"
+	"{{.Group}}/{{.Project.K}}/pkg/constants"
 
 	"gorm.io/gorm"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 const (
@@ -26,6 +28,33 @@ const (
 	TypeCommand   = "command"
 	TypeSeeder    = "seeder"
 )
+
+// serveOpenAPISpec отдаёт api/openapi.json или api/openapi.swagger.json (при наличии). Для генерации из proto: make proto-openapi.
+func serveOpenAPISpec() http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		for _, path := range []string{"api/openapi.swagger.json", "api/openapi.json", "api/api.swagger.json", "openapi.json"} {
+			data, err := os.ReadFile(path)
+			if err == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(data)
+				return
+			}
+		}
+		exe, _ := os.Executable()
+		if exe != "" {
+			dir := filepath.Dir(exe)
+			for _, name := range []string{"openapi.swagger.json", "openapi.json", "api.swagger.json"} {
+				data, err := os.ReadFile(filepath.Join(dir, "api", name))
+				if err == nil {
+					w.Header().Set("Content-Type", "application/json")
+					w.Write(data)
+					return
+				}
+			}
+		}
+		http.Error(w, "openapi.json not found. Put spec in api/ or run: make proto-openapi", http.StatusNotFound)
+	}
+}
 
 // Application — фабрика по режиму: api, worker, scheduler, command, seeder.
 type Application struct {
@@ -38,6 +67,9 @@ type Application struct {
 func New(mode string) (*Application, error) {
 	cfg, err := config.Load()
 	if err != nil {
+		return nil, err
+	}
+	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -63,11 +95,21 @@ func New(mode string) (*Application, error) {
 
 	if mode == TypeApi {
 		mux := http.NewServeMux()
-		mux.HandleFunc("/health", handler.Health)
-		mux.HandleFunc("/ready", handler.Ready)
+		mux.HandleFunc(constants.PathHealth, handler.Health)
+		mux.HandleFunc(constants.PathReady, handler.Ready)
+		mux.HandleFunc(constants.PathSwagger+"/openapi.json", serveOpenAPISpec())
+		mux.Handle(constants.PathSwagger+"/", httpSwagger.Handler(
+			httpSwagger.URL("openapi.json"),
+			httpSwagger.DeepLinking(true),
+			httpSwagger.DocExpansion("list"),
+		))
 		app.Srv = &http.Server{
-			Addr:    ":" + cfg.HTTPPort(),
-			Handler: mux,
+			Addr:              cfg.AppHost + ":" + cfg.HTTPPort(),
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       15 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       60 * time.Second,
 		}
 	}
 
@@ -87,7 +129,9 @@ func (a *Application) Run() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	if err := a.Srv.Shutdown(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := a.Srv.Shutdown(ctx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
 }
